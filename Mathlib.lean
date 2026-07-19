@@ -4848,6 +4848,11 @@ public import Mathlib.GroupTheory.Perm.Subgroup
 public import Mathlib.GroupTheory.Perm.Support
 public import Mathlib.GroupTheory.Perm.ViaEmbedding
 public import Mathlib.GroupTheory.Presentation
+public import Mathlib.GroupTheory.Presentation.Dehn
+public import Mathlib.GroupTheory.Presentation.FinitelyPresented
+public import Mathlib.GroupTheory.Presentation.Tietze
+public import Mathlib.GroupTheory.Presentation.WordMetric
+public import Mathlib.GroupTheory.Presentation.WordMetricSpace
 public import Mathlib.GroupTheory.PresentedGroup
 public import Mathlib.GroupTheory.PushoutI
 public import Mathlib.GroupTheory.QuotientGroup.Basic
@@ -8039,6 +8044,7 @@ public import Mathlib.Topology.MetricSpace.Pseudo.Defs
 public import Mathlib.Topology.MetricSpace.Pseudo.Lemmas
 public import Mathlib.Topology.MetricSpace.Pseudo.Pi
 public import Mathlib.Topology.MetricSpace.Pseudo.Real
+public import Mathlib.Topology.MetricSpace.QuasiIsometry
 public import Mathlib.Topology.MetricSpace.Sequences
 public import Mathlib.Topology.MetricSpace.ShrinkingLemma
 public import Mathlib.Topology.MetricSpace.Similarity

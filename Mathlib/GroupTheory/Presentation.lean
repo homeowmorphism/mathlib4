@@ -5,6 +5,7 @@ Authors: Hang Lu Su
 -/
 module
 
+public import Mathlib.GroupTheory.Finiteness
 public import Mathlib.GroupTheory.PresentedGroup
 public import Mathlib.GroupTheory.QuotientGroup.Basic
 
@@ -25,6 +26,9 @@ the chosen relators `rel`.
 
 * `Group.Generators G α`: a family `val : α → G` whose induced map `FreeGroup.lift val` is
   surjective, i.e. a generating family for `G` indexed by `α`.
+* `Group.Generators.ofClosureEqTop`: build a generating family from the elementary condition
+  `Subgroup.closure (Set.range val) = ⊤`.
+* `Group.Generators.self`: the tautological generating family of `G` by itself.
 * `Group.Presentation G α ρ`: a presentation `⟨α | rel⟩` of `G`, extending `Group.Generators G α`
   with relators `rel : ρ → FreeGroup α` and a proof that their normal closure is the kernel.
 * `Group.Presentation.lift`: the induced surjection `FreeGroup α →* G`.
@@ -34,12 +38,15 @@ the chosen relators `rel`.
 
 ## Design notes
 
+* A generating family is *finite* exactly when `α` is finite, expressed via `[Finite α]` rather than
+  a bundled field. `Group.Generators.fg` shows such a family witnesses `Group.FG G`, and
+  `Group.fg_iff_nonempty_finite_generators` is the bridge to the predicate `Group.FG`.
 * A presentation is *finite* exactly when `α` and `ρ` are finite. This is expressed downstream via
   `[Finite α] [Finite ρ]` rather than as a bundled field, keeping the structure minimal.
-* TODO: once `IsFinitelyPresented` (`Mathlib/GroupTheory/FinitelyPresentedGroup.lean`) sits in the
-  same import graph, add the bridge
-  `IsFinitelyPresented G ↔ ∃ (α ρ : Type) (_ : Finite α) (_ : Finite ρ),
-    Nonempty (Group.Presentation G α ρ)`.
+* The bridge to the predicate `IsFinitelyPresented` — a group is finitely presented iff it admits a
+  nonempty `Group.Presentation` with finite `α` and `ρ` — is
+  `Group.isFinitelyPresented_iff_nonempty_presentation`, in
+  `Mathlib/GroupTheory/Presentation/FinitelyPresented.lean`.
 
 ## Tags
 
@@ -50,13 +57,58 @@ group presentation, generators and relations
 
 variable {G α ρ : Type*} [Group G]
 
-/-- A generating family for a group `G` indexed by `α`: the induced homomorphism
-`FreeGroup.lift val : FreeGroup α →* G` is surjective. -/
+/-- The generators of a group are given by a generating family indexed by `α` such that
+the induced homomorphism `FreeGroup.lift val : FreeGroup α →* G` is surjective. -/
 structure Group.Generators (G : Type*) [Group G] (α : Type*) where
-  /-- The generators, as elements of `G`. -/
   val : α → G
-  /-- The generators generate `G`: the induced map from the free group is surjective. -/
   lift_surjective : Function.Surjective (FreeGroup.lift val)
+
+namespace Group.Generators
+
+variable (P : Group.Generators G α)
+
+/-- A generating family generates `G`: the subgroup closure of its image is everything. This is the
+elementary form of the defining condition; `Group.Generators.ofClosureEqTop` is the converse. -/
+theorem closure_range_val_eq_top : Subgroup.closure (Set.range P.val) = ⊤ := by
+  rw [← FreeGroup.range_lift_eq_closure, MonoidHom.range_eq_top]
+  exact P.lift_surjective
+
+/-- Build a generating family from the elementary condition that the image of `val` generates `G`
+(`Subgroup.closure (Set.range val) = ⊤`), instead of from surjectivity of `FreeGroup.lift val`. -/
+def ofClosureEqTop (val : α → G) (h : Subgroup.closure (Set.range val) = ⊤) :
+    Group.Generators G α where
+  val := val
+  lift_surjective := by rw [← MonoidHom.range_eq_top, FreeGroup.range_lift_eq_closure]; exact h
+
+@[simp] theorem val_ofClosureEqTop (val : α → G) (h : Subgroup.closure (Set.range val) = ⊤) :
+    (ofClosureEqTop val h).val = val := rfl
+
+/-- The tautological generating family of `G`, indexed by `G` itself via the identity. -/
+def self (G : Type*) [Group G] : Group.Generators G G :=
+  ofClosureEqTop id (by rw [Set.range_id]; exact Subgroup.closure_univ)
+
+@[simp] theorem val_self : (self G).val = id := rfl
+
+/-- A finite generating family (finitely many generators, `[Finite α]`) witnesses that `G` is
+finitely generated: the induced surjection `FreeGroup α →* G` has finitely generated domain. -/
+theorem fg [Finite α] (P : Group.Generators G α) : Group.FG G :=
+  Group.fg_of_surjective P.lift_surjective
+
+end Group.Generators
+
+/-- A group is finitely generated if and only if it admits a bundled `Group.Generators` with a
+finite index type. This is the bridge between the predicate `Group.FG` and the data-carrying
+`Group.Generators`, mirroring `Group.isFinitelyPresented_iff_nonempty_presentation`. -/
+theorem Group.fg_iff_nonempty_finite_generators :
+    Group.FG G ↔ ∃ (α : Type) (_ : Finite α), Nonempty (Group.Generators G α) := by
+  rw [Group.fg_iff_exists_freeGroup_hom_surjective_finite]
+  constructor
+  · rintro ⟨α, hα, φ, hφ⟩
+    refine ⟨α, hα, ⟨⟨fun a => φ (FreeGroup.of a), ?_⟩⟩⟩
+    have hlift : FreeGroup.lift (fun a => φ (FreeGroup.of a)) = φ := by ext a; simp
+    rw [hlift]; exact hφ
+  · rintro ⟨α, hα, ⟨P⟩⟩
+    exact ⟨α, hα, FreeGroup.lift P.val, P.lift_surjective⟩
 
 /-- A presentation `⟨α | rel⟩` of a group `G`: a generating family `val : α → G` together with a
 family of relators `rel : ρ → FreeGroup α` whose normal closure is exactly the kernel of the
@@ -82,11 +134,31 @@ def relSet : Set (FreeGroup α) := Set.range P.rel
 
 theorem lift_surjective' : Function.Surjective P.lift := P.lift_surjective
 
+@[simp] theorem lift_of (a : α) : P.lift (FreeGroup.of a) = P.val a := by simp [lift]
+
+@[simp] theorem range_lift_eq_top : P.lift.range = ⊤ :=
+  MonoidHom.range_eq_top.mpr P.lift_surjective'
+
+theorem rel_mem_relSet (r : ρ) : P.rel r ∈ P.relSet := ⟨r, rfl⟩
+
+/-- The relator set of a presentation with finitely many relators is finite. -/
+theorem relSet_finite [Finite ρ] : P.relSet.Finite := Set.finite_range P.rel
+
 theorem ker_lift : P.lift.ker = Subgroup.normalClosure P.relSet := P.ker_eq_normalClosure
+
+/-- Every relator of the presentation maps to `1` in `G`. -/
+theorem lift_rel (r : ρ) : P.lift (P.rel r) = 1 := by
+  rw [← MonoidHom.mem_ker, ker_lift]
+  exact Subgroup.subset_normalClosure (P.rel_mem_relSet r)
 
 /-- A presentation of `G` exhibits `G` as the group presented by its generators and relations. -/
 noncomputable def presentedGroupEquiv : PresentedGroup P.relSet ≃* G :=
   (QuotientGroup.quotientMulEquivOfEq P.ker_eq_normalClosure.symm).trans
     (QuotientGroup.quotientKerEquivOfSurjective P.lift P.lift_surjective)
+
+@[simp] theorem presentedGroupEquiv_of (a : α) :
+    P.presentedGroupEquiv (PresentedGroup.of a) = P.val a := by
+  have h : P.presentedGroupEquiv (PresentedGroup.of a) = P.lift (FreeGroup.of a) := rfl
+  rw [h, P.lift_of]
 
 end Group.Presentation
