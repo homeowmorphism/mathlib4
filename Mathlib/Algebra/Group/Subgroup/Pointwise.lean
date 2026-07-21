@@ -94,6 +94,24 @@ lemma subgroupClosure_mul_pow (hs : s.Nonempty) : ∀ n, closure s * s ^ n = clo
 
 end Set
 
+namespace Group
+
+/-- Inverting commutes with taking conjugates: the inverses of the conjugates of `s` are exactly
+the conjugates of the inverses of `s`. -/
+@[to_additive (attr := simp) /-- Negating commutes with taking additive conjugates: the negatives
+of the additive conjugates of `s` are exactly the additive conjugates of the negatives of `s`. -/]
+theorem conjugatesOfSet_inv (s : Set G) :
+    (conjugatesOfSet s)⁻¹ = conjugatesOfSet s⁻¹ := by
+  ext x
+  simp only [Set.mem_inv, mem_conjugatesOfSet_iff, isConj_iff]
+  constructor
+  · rintro ⟨a, ha, c, hc⟩
+    exact ⟨a⁻¹, by simpa using ha, c, by rw [← conj_inv, hc, inv_inv]⟩
+  · rintro ⟨a, ha, c, hc⟩
+    exact ⟨a⁻¹, ha, c, by rw [← conj_inv, hc]⟩
+
+end Group
+
 namespace Subgroup
 
 @[to_additive (attr := simp)]
@@ -111,6 +129,28 @@ theorem closure_toSubmonoid (S : Set G) :
         (Submonoid.one_mem _) (fun x y _ _ hx hy => Submonoid.mul_mem _ hx hy) (fun x _ hx => ?_) hx
     rwa [← Submonoid.mem_closure_inv, Set.union_inv, inv_inv, Set.union_comm]
   · simp only [true_and, coe_toSubmonoid, union_subset_iff, subset_closure, inv_subset_closure]
+
+/-- The normal closure of `s` is generated already as a *monoid* by the conjugates of the elements
+of `s` and of their inverses: no further inverses are needed, that set being closed under
+inversion. Compare `Subgroup.closure_toSubmonoid`. -/
+@[to_additive /-- The additive normal closure of `s` is generated already as an *additive monoid* by
+the additive conjugates of the elements of `s` and of their negatives: no further negatives are
+needed, that set being closed under negation. -/]
+theorem normalClosure_toSubmonoid (s : Set G) :
+    (normalClosure s).toSubmonoid = Submonoid.closure (Group.conjugatesOfSet (s ∪ s⁻¹)) := by
+  rw [normalClosure, closure_toSubmonoid, Group.conjugatesOfSet_inv, ← Group.conjugatesOfSet_union]
+
+/-- A group element lies in the normal closure of `s` exactly when it is a product of conjugates of
+elements of `s` and of their inverses. This is the monoid-level counterpart of the definition
+`Subgroup.normalClosure s = Subgroup.closure (Group.conjugatesOfSet s)`. -/
+@[to_additive /-- An additive group element lies in the additive normal closure of `s` exactly when
+it is a sum of additive conjugates of elements of `s` and of their negatives. -/]
+theorem mem_normalClosure_iff {s : Set G} {x : G} :
+    x ∈ normalClosure s ↔
+      ∃ l : List G, (∀ y ∈ l, y ∈ Group.conjugatesOfSet (s ∪ s⁻¹)) ∧ l.prod = x := by
+  rw [← mem_toSubmonoid, normalClosure_toSubmonoid, ← SetLike.mem_coe,
+    Submonoid.closure_eq_image_prod]
+  simp [eq_comm, and_comm]
 
 @[to_additive]
 lemma toSubmonoid_zpowers (g : G) :
